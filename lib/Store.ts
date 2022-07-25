@@ -1,25 +1,54 @@
 import { createArray, randomNumber, removeFromArray } from "./utils"
 
+type StoreOptions = {
+  topicsMap:  Map<string, string[]>,
+  topicsOrderSet: Set<string>,
+  termIndex?: number,
+  selectedTopicsSet?: Set<string>,
+  topicInEdit: string | null,
+  dialogOpen: boolean
+}
+
 export class Store {
   private selectedTopicsSet: Set<string> // only selected topics
-  private termIndex: number = 0
   private I: number[] = []
   private topicsMap: Map<string, string[]>
   private topicsOrderSet: Set<string>
-  constructor(
-    topicsMap: Map<string, string[]>,
-    topicsOrderSet: Set<string>,
-    selectedTopicsSet?: Set<string>
-  ) {
+  private _termIndex: number = 0
+  private _topicInEdit: string | null
+  private _dialogOpen = false
+  constructor({
+    topicsMap,
+    topicsOrderSet,
+    termIndex,
+    selectedTopicsSet,
+    topicInEdit,
+    dialogOpen
+  }: StoreOptions) {
     this.topicsMap = new Map(topicsMap)
     this.topicsOrderSet = new Set(topicsOrderSet)
     this.selectedTopicsSet = new Set(selectedTopicsSet ?? topicsOrderSet)
+    this.termIndex = termIndex ?? this._termIndex
+    this._topicInEdit = topicInEdit
+    this._dialogOpen = dialogOpen
   }
   get allTopics() {
     return [...this.topicsOrderSet]
   }
   get selectedTopics() {
     return [...this.selectedTopicsSet]
+  }
+  get topicInEdit() {
+    return this._topicInEdit
+  }
+  set topicInEdit(v: string | null) {
+    this._topicInEdit = v
+  }
+  get dialogOpen() {
+    return this._dialogOpen
+  }
+  set dialogOpen(v: boolean) {
+    this._dialogOpen = v
   }
   getTerms(topic: string) {
     if (this.topicsMap.has(topic)) {
@@ -101,6 +130,12 @@ export class Store {
     }
     this.reset()
   }
+  set termIndex(v: number) {
+    this._termIndex = v
+  }
+  get termIndex() {
+    return this._termIndex
+  }
   get term() {
     return this.terms[this.termIndex % this.terms.length]
   }
@@ -117,7 +152,10 @@ export class Store {
     return {
       topicsMap: new Map(this.topicsMap),
       topicsOrderSet: new Set(this.topicsOrderSet),
-      selectedTopicsSet: new Set(this.selectedTopicsSet)
+      selectedTopicsSet: new Set(this.selectedTopicsSet),
+      termIndex: this.termIndex,
+      topicInEdit: this.topicInEdit,
+      dialogOpen: this.dialogOpen
     }
   }
 }

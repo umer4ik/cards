@@ -3,7 +3,7 @@ import { createActionButton } from "./componentUtils"
 import { createEl } from "./utils"
 
 export const themeButton = new Component(createEl({ type: 'button', className: `theme-button`, children: '<span class="theme-button-bg"></span><span class="🌚">🌚</span><span class="🌞">🌞</span>' }))
-export const footer = new Component(createEl({ type: 'footer', className: 'footer', children: `<div class="footer-box"><a href="https://github.com/umer4ik" target="_blank">@umer4ik</a></div>` }))
+export const footer = new Component(createEl({ type: 'footer', className: 'footer', children: `<div class="footer-box"><a href="https://github.com/umer4ik/cards" target="_blank">Github</a></div>` }))
 const notFoundText = new Component(createEl({ type: 'span', className: 'not-found-text', children: 'Not found', testId: 'not-found-message' }))
 export const notFoundTextLink = new Component(createEl({ type: 'span', className: 'not-found-home-link', children: 'Home', testId: 'link-to-home' }))
 export const notFoundPage = new Component(createEl({ className: 'not-found-page', children: [notFoundText.el, notFoundTextLink.el] }))

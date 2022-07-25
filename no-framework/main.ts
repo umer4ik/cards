@@ -2,7 +2,7 @@ import { checkIfEl, prepareTerms } from '../lib/utils'
 import { EventEmitter } from './EventEmitter'
 import './style.css'
 import { add, backdrop, bottomSection, cancelButton, deleteBtn, dialog, done, footer, form, linkToTopics, mainContainer, nextButton, notFoundPage, notFoundTextLink, noTopics, prevButton, randomButton, termEl, termsInput, termsInputError, themeButton, topicInput, topicInputError, topics } from './components'
-import { KEY_CODES } from './constants'
+import { KEY_CODES } from '../lib/constants'
 import { Theme } from '../lib/Theme'
 import { UI } from './UI'
 import { createTopicItem } from './componentUtils'
@@ -55,6 +55,7 @@ export function render() {
   prevButton.addEvent('click', onSelectPrev)
   destroyHandlers.push(() => prevButton.removeEvent('click', onSelectPrev))
   const onBodyKeyDown = ({ code }: KeyboardEvent) => {
+    if (window.location.pathname !== '/') return
     if (code === KEY_CODES.R) onSelectRandom()
     else if (code === KEY_CODES.N) onSelectNext()
     else if (code === KEY_CODES.P) onSelectPrev()
@@ -132,7 +133,7 @@ export function render() {
   let topicsLoaded = false
   const loadTopicsPage = () => {
     if (!topicsLoaded) {
-      topics.addEvent('click', (e) => {
+      const onTopicsClick = (e: MouseEvent) => {
         if (e.target instanceof Element) {
           const toggleTopic = e.target.closest('.topic-toggle[data-topic]')
           if (toggleTopic) {
@@ -146,9 +147,14 @@ export function render() {
             events.trigger('edit-topic', { topic })
           }
         }
-      })
+      }
+      topics.addEvent('click', onTopicsClick)
       renderTopics()
       topicsLoaded = true
+      destroyHandlers.push(() => {
+        topicsLoaded = false
+        topics.removeEvent('click', onTopicsClick)
+      })
     }
     ui.update([topics.el, done.el, dialog.el, backdrop.el, add.el])
   }
@@ -176,22 +182,30 @@ export function render() {
   events.addHandler('init', () => {
     themeButton.el.classList.add(theme.mode)
     document.body.classList.add(theme.mode)
+    if (syncedStore.topicInEdit) {
+      events.trigger('edit-topic', { topic: syncedStore.topicInEdit })
+    } else if (syncedStore.dialogOpen) {
+      showDialog()
+    }
     events.trigger('navigate', { path: window.location.pathname })
     window.addEventListener('popstate', () => {
       events.trigger('navigate', { path: window.location.pathname })
     });
   })
 
-  let topicInEdit: string | null = null
-
-  events.addHandler('edit-topic', ({ topic }: { topic: string }) => {
-    resetForm()
+  const showDialog = () => {
     dialog.el.classList.add('show')
     backdrop.el.classList.add('show')
+  }
+
+  events.addHandler('edit-topic', async ({ topic }: { topic: string }) => {
+    resetForm()
+    showDialog()
     deleteBtn.el.classList.add('show')
     if (!(topicInput.el instanceof HTMLInputElement)) return
     if (!(termsInput.el instanceof HTMLTextAreaElement)) return
-    topicInEdit = topic
+    await syncedStore.setTopicInEdit(topic)
+    await syncedStore.setDialogOpen(true)
     topicInput.el.value = topic
     topicInput.el.focus()
     termsInput.el.value = syncedStore.getTerms(topic)?.join('\n') || ''
@@ -210,11 +224,12 @@ export function render() {
   }
   cancelButton.addEvent('click', onCancelButtonClick)
   destroyHandlers.push(() => cancelButton.removeEvent('click', onCancelButtonClick))
-  const hideDialog =  () => {
+  const hideDialog = async () => {
     dialog.el.classList.remove('show')
     backdrop.el.classList.remove('show')
     deleteBtn.el.classList.remove('show')
-    topicInEdit = null
+    await syncedStore.setTopicInEdit(null)
+    await syncedStore.setDialogOpen(false)
   }
 
   const onBackDropClick = () => events.trigger('hide-dialog')
@@ -244,7 +259,7 @@ export function render() {
     const data = new FormData(form.el as HTMLFormElement)
     const topicName = data.get('topic') as string
     const terms = data.get('terms') as string
-    const isEditForm = topicInEdit !== null
+    const isEditForm = syncedStore.topicInEdit !== null
     let error = false
     if (!topicName) {
       showTopicNameError('Topic name is required')
@@ -262,14 +277,14 @@ export function render() {
     }
     if (error) return
     if (isEditForm) {
-      const topics = syncedStore.allTopics.filter(x => x !== topicInEdit)
+      const topics = syncedStore.allTopics.filter(x => x !== syncedStore.topicInEdit)
       if (~topics.indexOf(topicName as string)) {
         showTopicNameError('Topic already exists')
         return
       } else {
         hideTopicNameError()
       }
-      await syncedStore.updateTopic(topicInEdit!, topicName, prepareTerms(terms))
+      await syncedStore.updateTopic(syncedStore.topicInEdit!, topicName, prepareTerms(terms))
     } else {
       await syncedStore.addTopic(topicName, prepareTerms(terms))
     }
@@ -277,7 +292,7 @@ export function render() {
     events.trigger('hide-dialog')
   })
   events.addHandler('delete-topic', async () => {
-    await syncedStore.deleteTopic(topicInEdit!)
+    await syncedStore.deleteTopic(syncedStore.topicInEdit!)
     renderTopics()
     events.trigger('hide-dialog')
   })
@@ -290,12 +305,12 @@ export function render() {
   add.addEvent('click', onAddClick)
   destroyHandlers.push(() => add.removeEvent('click', onAddClick))
 
-  events.addHandler('create-topic', () => {
+  events.addHandler('create-topic', async () => {
     resetForm()
-    dialog.el.classList.add('show')
-    backdrop.el.classList.add('show')
+    showDialog()
     if (!(topicInput.el instanceof HTMLInputElement)) return
     topicInput.el.focus()
+    await syncedStore.setDialogOpen(true)
   })
 }
 
